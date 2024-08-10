@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import Image from 'next/image';
-import { ConnectButton, MediaRenderer, useActiveAccount } from 'thirdweb/react';
+import { ConnectButton, MediaRenderer, useActiveAccount, useReadContract } from 'thirdweb/react';
 import { client } from '@/app/client';
 import NFTCollection from './NFTCollection';
+import { getNFTs } from 'thirdweb/extensions/erc721';
+import { contract } from '@/utils/contracts';
+import { upload } from 'thirdweb/storage';
 
 interface AIGeneration {
   id: number;
@@ -19,24 +21,45 @@ const AIGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
 
-  // const [aiGenerations, setAiGenerations] = useState<AIGeneration[]>([
-    // { id: 1, imageUrl: '/path-to-image-1.jpg' },
-    // { id: 2, imageUrl: '/path-to-image-2.jpg' },
-    // { id: 3, imageUrl: '/path-to-image-3.jpg' },
-    // { id: 4, imageUrl: '/path-to-image-4.jpg' },
-    // { id: 5, imageUrl: '/path-to-image-5.jpg' },
-    // { id: 6, imageUrl: '/path-to-image-6.jpg' },
-    // { id: 7, imageUrl: '/path-to-image-7.jpg' },
-    // { id: 8, imageUrl: '/path-to-image-8.jpg' },
-  // ]);
+  const { data: nfts, isLoading } = useReadContract(
+    getNFTs,
+    {
+      contract: contract
+    }
+  )
 
   const handleSwitchNetwork = () => {
     // Implement network switching logic
     console.log('Switching network...');
   };
 
-  const handleGenerateAndMint = async () => {
-    console.log('Generating and minting with prompt:', prompt);
+  const handleGenerateAndMint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsGenerating(true);
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt })
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to generate image.");
+      }
+
+      const data = await res.json();
+      const imageBlob = await fetch(data.data[0].asset_url).then((img) => img.blob());
+      const imageFile = new File([imageBlob], "image.png", {type: "image/png"});
+      const imageUri = await upload({client: client,
+                                     files: [imageFile]})
+      
+      setGeneratedImage(imageUri);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleGenerateAnother = () => {
@@ -68,29 +91,31 @@ const AIGenerator: React.FC = () => {
             
           <form onSubmit={handleGenerateAndMint}>
             {!isGenerating || isMinting ? 
-(            <div>
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Enter image prompt..."
-                className="w-full px-4 py-2 rounded border border-white bg-stone-950"
-              />
-      
-              <button
-                type="submit"
-                disabled={!prompt || isGenerating || isMinting}
-                className="w-full bg-gray-950 text-white px-4 py-2 rounded mb-8"
-              >
-                {isGenerating ? "Generating..." : isMinting ? "Minting..." : "Generate and Mint"}
-              </button>
-          </div>)
-          : (<div>
-              <button onClick={handleGenerateAnother} className="w-full bg-gray-950 text-white px-4 py-2 rounded mb-8">Generate another NFT</button>
-            </div>)
+              (<div>
+                  <input
+                    type="text"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Enter image prompt..."
+                    className="w-full px-4 py-2 rounded border border-white bg-stone-950 my-3"
+                  />
+          
+                  <button
+                    type="submit"
+                    disabled={!prompt || isGenerating || isMinting}
+                    className="w-full bg-gray-950 text-white px-4 py-2 rounded mb-8 cursor-pointer"
+                  >
+                    {isGenerating ? "Generating..." : isMinting ? "Minting..." : "Generate and Mint"}
+                  </button>
+              </div>)
+            : (<div className='p-5'>
+                <button onClick={handleGenerateAnother} className="w-full bg-gray-950 text-white px-4 py-2 rounded mb-8">Generate another NFT</button>
+              </div>)
         }
         </form>
-          {/* <NFTCollection nfts={}/> */}
+
+
+        <NFTCollection nfts={nfts} />
       </div>
     );
   }
