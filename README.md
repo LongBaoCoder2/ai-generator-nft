@@ -26,7 +26,6 @@ AI NFT Generator is a web application that allows users to generate images using
 - **AI Image Generation**: Generate images using an AI API.
 - **NFT Minting**: Mint generated images as NFTs on the blockchain.
 - **Thirdweb Integration**: Easily connect to the blockchain using Thirdweb's SDK.
-- **Responsive Design**: User-friendly interface, optimized for all devices.
 
 ## Prerequisites
 
@@ -34,7 +33,7 @@ Before you begin, ensure you have met the following requirements:
 
 - Node.js and npm/yarn installed
 - A Thirdweb account and access to the Thirdweb dashboard
-- An API key from OpenAI (or other AI service) for image generation
+- An API key from LIMEWIRE (or other AI services and some change in code) for image generation
 
 ## Getting Started
 
