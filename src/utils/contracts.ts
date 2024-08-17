@@ -1,13 +1,12 @@
 // This project uses sepolia chain 
+import { chain } from "@/app/chain";
 import { client } from "@/app/client";
 import { getContract } from "thirdweb";
-import { sepolia } from "thirdweb/chains";
 
 const NFTCollectionContractAddress = process.env.NFT_COLLECTION_CONTRACT_ADDRESS as string;
 
 export const contract = getContract({
     client: client,
-    chain: sepolia,
+    chain: chain,
     address: NFTCollectionContractAddress
 })
-
