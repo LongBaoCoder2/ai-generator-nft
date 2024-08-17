@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ConnectButton, MediaRenderer, useActiveAccount, useReadContract } from 'thirdweb/react';
 import { client } from '@/app/client';
 import NFTCollection from './NFTCollection';
-import { getNFTs } from 'thirdweb/extensions/erc721';
+import { getNFTs, ownerOf, totalSupply } from "thirdweb/extensions/erc721";
 import { contract } from '@/utils/contracts';
 import { upload } from 'thirdweb/storage';
+import { NFT } from "thirdweb";
+import { chain } from '@/app/chain';
+
 
 interface AIGeneration {
   id: number;
@@ -15,23 +18,58 @@ interface AIGeneration {
 
 const AIGenerator: React.FC = () => {
   const account = useActiveAccount();
-
   const [prompt, setPrompt] = useState('');
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const [nfts, setOwnedNFTs] = useState<NFT[] | null>(null);
 
-  const { data: nfts, isLoading } = useReadContract(
-    getNFTs,
-    {
-      contract: contract
+  const getOwnedNFTs = useCallback(async () => {
+    console.log("Start getNFT")
+
+    let ownedNFTs: NFT[] = [];
+    const totalNFTSupply = await totalSupply({ contract,
+    });
+    const nfts = await getNFTs({
+      contract: contract,
+      start: 0,
+      count: parseInt(totalNFTSupply.toString()),
+    });
+    console.log(`nfts: ${nfts}`)
+
+    for (let nft of nfts) {
+      const owner = await ownerOf({
+        contract: contract,
+        tokenId: nft.id,
+      });
+      if (owner === account?.address) {
+        ownedNFTs.push(nft);
+      }
     }
-  )
+    console.log(`ownedNFTs: ${ownedNFTs}`)
+    console.log(`nfts: ${nfts}`)
+    
+    setOwnedNFTs(ownedNFTs);
+  }, [account]);
 
-  const handleSwitchNetwork = () => {
-    // Implement network switching logic
-    console.log('Switching network...');
-  };
+  const fetchNFT = useCallback(async () => {
+    if (account) {
+      await getOwnedNFTs();
+    }
+  }, [account, getOwnedNFTs]);
+
+  useEffect(() => {
+    let isSubscribed = true;
+
+    fetchNFT()
+      .catch(console.error);
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [fetchNFT]);
+
+  console.log(nfts)
 
   const handleGenerateAndMint = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,17 +91,29 @@ const AIGenerator: React.FC = () => {
       const data = await res.json();
       const imageBlob = await fetch(data.data[0].asset_url).then((img) => img.blob());
       const imageFile = new File([imageBlob], "image.png", {type: "image/png"});
+      console.log(imageFile);
+
+
       const imageUri = await upload({client: client,
-                                     files: [imageFile]})
+                                      files: [imageFile]})
       
+      console.log(imageUri);
       setGeneratedImage(imageUri);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsGenerating(false);
     }
+
   };
 
   const handleGenerateAnother = () => {
+    if (!isGenerating || !isMinting) {
+      return;
+    }
 
+    setPrompt("");
+    setGeneratedImage(null);
   }
 
   if (account) {
@@ -71,8 +121,9 @@ const AIGenerator: React.FC = () => {
       <div className="flex flex-col items-center gap-4 p-5">
           <ConnectButton
             client={client} 
+            chain={chain}
           />
-  
+
           <div className='my-4'>
             {generatedImage ? (
               <MediaRenderer 
@@ -86,7 +137,6 @@ const AIGenerator: React.FC = () => {
               </div>
             )}
           </div>
-  
 
             
           <form onSubmit={handleGenerateAndMint}>
@@ -115,11 +165,11 @@ const AIGenerator: React.FC = () => {
         </form>
 
 
-        <NFTCollection nfts={nfts} />
+        <NFTCollection nfts={nfts!} />
       </div>
     );
   }
-  
+
 };
 
 export default AIGenerator;
