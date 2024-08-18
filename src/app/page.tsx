@@ -1,6 +1,8 @@
 import { ConnectEmbed } from "thirdweb/react";
 import { client } from "./client";
 import AIGenerator from "@/components/AIGenerator";
+import { chain } from "./chain";
+
 
 export default function Home() {
   return (
@@ -13,7 +15,9 @@ export default function Home() {
         </header>
 
         <main>
-          <ConnectEmbed client={client}/>
+          <ConnectEmbed  client={client}
+                         chain={chain}
+          />
         </main>
 
         <AIGenerator />
